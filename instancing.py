@@ -10,16 +10,14 @@ import bmesh
 from mathutils import Vector, Matrix
 from functools import partial
 
-C = bpy.context
-D = bpy.data
-
 # We don't include the first collection as that is where the empty gets placed, and you can't instance your own collection
+# TODO: we don't want to include the destination instance
 def collection_property_callback(self, context):
-    return [('',) * 3] + [(coll.name_full,) * 3 for coll in D.collections[1:]]
+    return [('', '', '')] + [(coll.name_full,) * 3 for coll in bpy.data.collections[1:]]
 
 def make_empty(instance_collection, display_size, type):
     bpy.ops.object.empty_add(type=type)
-    ret = C.object
+    ret = bpy.context.object
     ret.empty_display_size = 0
     if instance_collection:
         ret.instance_type = 'COLLECTION'
@@ -52,11 +50,8 @@ class InstancingPlusPlus(bpy.types.Operator):
     )
     display_size: bpy.props.FloatProperty(name='Empty Display Size', default=0.01, min=0.01, max=10)
     which: bpy.props.BoolVectorProperty(name='Which', size=3)
-    collection: bpy.props.EnumProperty(name='Instance Collection', items=collection_property_callback)
-
-    def __init__(self):
-        self.instances = []
-        self.cache = None
+    collection: bpy.props.StringProperty(name='Instance Collection', default='')
+    instance_enabled: bpy.props.BoolProperty(name='Enable Instance', default=True)
 
     @classmethod
     def poll(cls, context):
@@ -67,7 +62,8 @@ class InstancingPlusPlus(bpy.types.Operator):
         mesh = bmesh.new()
         mesh.from_mesh(obj.data)
 
-        instance_collection = D.collections[self.collection] if self.collection else None
+        instance_collection = bpy.data.collections[self.collection] if (self.instance_enabled and self.collection) else None
+        # print(self.collection, instance_collection)
         dest_collection = bpy.data.collections.new('Instances')
         context.scene.collection.children.link(dest_collection)
 
@@ -84,7 +80,6 @@ class InstancingPlusPlus(bpy.types.Operator):
                 i = k.orthogonal()
                 j = k.cross(i)
                 empty.matrix_local = change_of_basis_matrix(v.co, i, j, k)
-                empty.scale.xyz = 1, 1, 1
                 empties.append(empty)
 
         # Edge
@@ -97,7 +92,6 @@ class InstancingPlusPlus(bpy.types.Operator):
                 j = k.cross(i)
                 mid = (e.verts[0].co + e.verts[1].co) / 2
                 empty.matrix_local = change_of_basis_matrix(mid, i, j, k)
-                empty.scale.xyz = 1, 1, 1
                 empties.append(empty)
 
         # Faces
@@ -110,7 +104,6 @@ class InstancingPlusPlus(bpy.types.Operator):
                 i = edge.verts[1].co - edge.verts[0].co
                 j = k.cross(i)
                 empty.matrix_local = change_of_basis_matrix(f.calc_center_median(), i, j, k)
-                empty.scale.xyz = 1, 1, 1
                 empties.append(empty)
 
         for e in empties:
@@ -133,7 +126,9 @@ class InstancingPlusPlus(bpy.types.Operator):
 
         row = col.split(factor=title_size, align=True)
         row.label(text='Instance Collection')
-        row.prop(self, 'collection', text='')
+        # TODO: there is too much spacing between the checkbox and search box
+        row.prop(self, 'instance_enabled', text='')
+        row.prop_search(self, 'collection', bpy.data, 'collections', text='')
 
         row = layout.row()
         for i, text in enumerate(('Verts', 'Edges', 'Faces')):
@@ -148,6 +143,7 @@ def unregister():
     bpy.utils.unregister_class(InstancingPlusPlus)
 
 if __name__ == '__main__':
+    # print('-' * 80)
     try:
         unregister()
     except Exception:
