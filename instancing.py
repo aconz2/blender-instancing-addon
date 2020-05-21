@@ -1,8 +1,10 @@
 bl_info = {
     'name': 'Instancing++',
     'description': 'Create empties instanced to a collection on any combination of verts, edges, and faces',
+    'author': 'Andrew Consroe',
     'blender': (2, 80, 0),
     'category': 'Object',
+    'version': (1, 0),
 }
 
 import bpy
@@ -31,8 +33,8 @@ def change_of_basis_matrix(at, i, j, k):
 
 def edge_normal(edge):
     faces = list(edge.link_faces)
-    if len(faces) > 2:
-        print('WARNING got {} faces when I was only expecting 2'.format(len(faces)))
+    if len(faces) != 2:
+        return None
     return (faces[0].normal + faces[1].normal) / 2
 
 class InstancingPlusPlus(bpy.types.Operator):
@@ -48,7 +50,7 @@ class InstancingPlusPlus(bpy.types.Operator):
             ('PLAIN_AXES', 'Plain Axes', 'Plain Axes'),
         ],
     )
-    display_size: bpy.props.FloatProperty(name='Empty Display Size', default=0.01, min=0.01, max=10)
+    display_size: bpy.props.FloatProperty(name='Empty Display Size', default=1, min=0.01, max=10)
     which: bpy.props.BoolVectorProperty(name='Which', size=3)
     collection: bpy.props.StringProperty(name='Instance Collection', default='')
     instance_enabled: bpy.props.BoolProperty(name='Enable Instance', default=True)
@@ -83,16 +85,24 @@ class InstancingPlusPlus(bpy.types.Operator):
                 empties.append(empty)
 
         # Edge
+        bad_edges_count = 0
         if self.which[1]:
             for e in mesh.edges:
-                empty = make_empty_()
                 # choose x along edge, z as the vector bisector of its two face normals, and cross for y
                 k = edge_normal(e)
+                # skip edge if it doesn't join 2 faces
+                if k is None:
+                    bad_edges_count += 1
+                    continue
                 i = e.verts[1].co - e.verts[0].co
                 j = k.cross(i)
                 mid = (e.verts[0].co + e.verts[1].co) / 2
+                empty = make_empty_()
                 empty.matrix_local = change_of_basis_matrix(mid, i, j, k)
                 empties.append(empty)
+
+            if bad_edges_count > 0:
+                self.report({'WARNING'}, f'Skipped {bad_edges_count} edges because they don\'t join 2 faces')
 
         # Faces
         if self.which[2]:
