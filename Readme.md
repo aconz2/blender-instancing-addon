@@ -1,5 +1,7 @@
 Blender addon to create empties at verts, edges, and/or faces. See [demo video](https://www.youtube.com/watch?v=1XHZL3BMYok)
 
+Available in the menu Object>Instancing++ or by operator search.
+
 # Verts
 Empty is placed at the vertex with its +Z along the vertex normal. Other two axes are arbitrary
 

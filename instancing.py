@@ -38,7 +38,9 @@ def edge_normal(edge):
     return (faces[0].normal + faces[1].normal) / 2
 
 class InstancingPlusPlus(bpy.types.Operator):
-    bl_idname = 'object.instancing_plus'
+    """More flexible version of vert, edge, and face instancing"""
+
+    bl_idname = 'object.instancingplusplus'
     bl_label = 'Instancing++'
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -146,11 +148,26 @@ class InstancingPlusPlus(bpy.types.Operator):
 
         layout.row().prop(self, 'display_size')
 
+
+class InstancingPlusPlusMenu(bpy.types.Menu):
+    bl_label = 'Instancing++'
+    bl_idname = 'object.instancingplusplusmenu'
+
+    def draw(self, context):
+        self.layout.operator(InstancingPlusPlus.bl_idname)
+
+def menu_func(self, context):
+    self.layout.menu(InstancingPlusPlusMenu.bl_idname)
+
 def register():
     bpy.utils.register_class(InstancingPlusPlus)
+    bpy.utils.register_class(InstancingPlusPlusMenu)
+    bpy.types.VIEW3D_MT_object.append(menu_func)
 
 def unregister():
     bpy.utils.unregister_class(InstancingPlusPlus)
+    bpy.utils.unregister_class(InstancingPlusPlusMenu)
+    bpy.types.VIEW3D_MT_object.remove(menu_func)
 
 if __name__ == '__main__':
     # print('-' * 80)
